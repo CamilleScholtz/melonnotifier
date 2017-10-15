@@ -15,6 +15,9 @@ func main() {
 
 	n, err := newNotification(1920-56, 1200-(56*2), 56, "#EEEEEE",
 		"#021B21", "/home/onodera/.fonts/cure.tff.bak", 11)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	for {
 		if err := n.draw(<-ev.Notification); err != nil {
