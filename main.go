@@ -4,7 +4,7 @@ import (
 	"log"
 	"time"
 
-	"github.com/onodera-punpun/melonnotify/notify"
+	"github.com/onodera-punpun/melonnotifier/notify"
 )
 
 func main() {
@@ -13,12 +13,14 @@ func main() {
 		log.Fatal(err)
 	}
 
-	n, err := newNotification(40, 40, 200, 56, "#EEEEEE", "#021B21",
-		"/home/onodera/.fonts/cure.tff.bak", 11)
+	n, err := newNotification(1920-56, 1200-(56*2), 56, "#EEEEEE",
+		"#021B21", "/home/onodera/.fonts/cure.tff.bak", 11)
 
 	for {
-		n.draw(<-ev.Notification)
+		if err := n.draw(<-ev.Notification); err != nil {
+			log.Fatal(err)
+		}
 		time.Sleep(time.Second * 4)
-		n.destroy()
+		n.undraw()
 	}
 }

@@ -30,7 +30,7 @@ func (ev *Event) CloseNotification(_ uint32) *dbus.Error {
 
 // GetCapabilities handles some freedesktop bullshit.
 func (ev *Event) GetCapabilities() ([]string, *dbus.Error) {
-	return []string{"actions", "body", "persistence"}, nil
+	return []string{}, nil
 }
 
 // GetServerInformation handles some freedesktop bullshit.

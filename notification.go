@@ -8,6 +8,7 @@ import (
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/BurntSushi/xgbutil"
 	"github.com/BurntSushi/xgbutil/ewmh"
+	"github.com/BurntSushi/xgbutil/xevent"
 	"github.com/BurntSushi/xgbutil/xgraphics"
 	"github.com/BurntSushi/xgbutil/xwindow"
 )
@@ -19,8 +20,8 @@ type Notification struct {
 	win *xwindow.Window
 	img *xgraphics.Image
 
-	// The width and height of the notitication window.
-	x, y, w, h int
+	// The X, Y and height of the notitication window.
+	x, y, h int
 
 	// The foreground and background colors of the notification window.
 	bg, fg xgraphics.BGRA
@@ -30,7 +31,7 @@ type Notification struct {
 	size float64
 }
 
-func newNotification(x, y, w, h int, bg, fg, font string,
+func newNotification(x, y, h int, bg, fg, font string,
 	size float64) (n *Notification, err error) {
 	n = new(Notification)
 
@@ -40,13 +41,16 @@ func newNotification(x, y, w, h int, bg, fg, font string,
 		return nil, err
 	}
 
+	// Run the main X event loop, this is uses to catch events.
+	go xevent.Main(n.xu)
+
 	// Create a window for the notification window. This window also listens to
 	// button press events in order to respond to them.
 	n.win, err = xwindow.Generate(n.xu)
 	if err != nil {
 		return nil, err
 	}
-	n.win.Create(n.xu.RootWin(), x, y, w, h, xproto.CwBackPixel|
+	n.win.Create(n.xu.RootWin(), x, y, 600, h, xproto.CwBackPixel|
 		xproto.CwEventMask, 0x000000, xproto.EventMaskButtonPress)
 
 	// EWMH stuff to make the notification window visibile on all workspaces and
@@ -60,13 +64,12 @@ func newNotification(x, y, w, h int, bg, fg, font string,
 	}
 
 	// Create the notification popup image.
-	n.img = xgraphics.New(n.xu, image.Rect(0, 0, w, h))
+	n.img = xgraphics.New(n.xu, image.Rect(0, 0, 600, h))
 	n.img.XSurfaceSet(n.win.Id)
 
 	// Set width and height of the notitication window.
 	n.x = x
 	n.y = y
-	n.w = w
 	n.h = h
 
 	// Convert foreground and background colors of the notification window from
@@ -90,17 +93,21 @@ func newNotification(x, y, w, h int, bg, fg, font string,
 	}
 	n.size = size
 
-	// Listen to mouse events and execute the required function.
-	//xevent.ButtonPressFun(func(_ *xgbutil.XUtil, ev xevent.ButtonPressEvent) {
-	//}).Connect(notify.xu, notify.win.Id)
+	// Listen to mouse events; close on click.
+	xevent.ButtonPressFun(func(_ *xgbutil.XUtil, ev xevent.ButtonPressEvent) {
+		n.undraw()
+	}).Connect(n.xu, n.win.Id)
 
 	return n, nil
 }
 
 func (n *Notification) draw(text string) error {
-	// Calculate the required X coordinate.
-	tw, _ := xgraphics.Extents(n.font, n.size, text)
-	x := (n.w / 2) - (tw / 2)
+	// Calculate the required bar width coordinate.
+	w, _ := xgraphics.Extents(n.font, n.size, text)
+	w += (2 * 24)
+	if w > 600 {
+		w = 600
+	}
 
 	// Color the background.
 	n.img.For(func(cx, cy int) xgraphics.BGRA {
@@ -108,8 +115,7 @@ func (n *Notification) draw(text string) error {
 	})
 
 	// Draw the text.
-	// TODO: Center text vertically automatically.
-	if _, _, err := n.img.Text(x, 19, n.fg, n.size, n.font, text); err != nil {
+	if _, _, err := n.img.Text(24, 20, n.fg, n.size, n.font, text); err != nil {
 		return err
 	}
 
@@ -118,9 +124,7 @@ func (n *Notification) draw(text string) error {
 		return err
 	}
 	n.win.Map()
-
-	// XXX: Hack to keep OpenBox happy.
-	n.win.Move(n.x, n.y)
+	n.win.MoveResize(n.x-w, n.y, w, n.h)
 
 	// Draw and paint image on window.
 	n.img.XDraw()
@@ -129,6 +133,6 @@ func (n *Notification) draw(text string) error {
 	return nil
 }
 
-func (n *Notification) destroy() {
+func (n *Notification) undraw() {
 	n.win.Unmap()
 }
