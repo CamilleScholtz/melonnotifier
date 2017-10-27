@@ -3,6 +3,7 @@ package main
 import (
 	"image"
 	"os"
+	"time"
 
 	"github.com/BurntSushi/freetype-go/freetype/truetype"
 	"github.com/BurntSushi/xgb/xproto"
@@ -11,6 +12,7 @@ import (
 	"github.com/BurntSushi/xgbutil/xevent"
 	"github.com/BurntSushi/xgbutil/xgraphics"
 	"github.com/BurntSushi/xgbutil/xwindow"
+	"github.com/pocke/oshirase"
 )
 
 // Notification is a struct describing a notification popup.
@@ -29,10 +31,16 @@ type Notification struct {
 	// The font and fontsize size that should be used.
 	font *truetype.Font
 	size float64
+
+	// The time in seconds a notification is visible.
+	time time.Duration
+
+	// ID to check if we are killing the right window.
+	ID uint32
 }
 
 func newNotification(x, y, h int, bg, fg, font string,
-	size float64) (n *Notification, err error) {
+	size float64, time time.Duration) (n *Notification, err error) {
 	n = new(Notification)
 
 	// Set up a connection to the X server.
@@ -93,17 +101,19 @@ func newNotification(x, y, h int, bg, fg, font string,
 	}
 	n.size = size
 
+	n.time = time
+
 	// Listen to mouse events; close on click.
 	xevent.ButtonPressFun(func(_ *xgbutil.XUtil, ev xevent.ButtonPressEvent) {
-		n.undraw()
+		n.win.Unmap()
 	}).Connect(n.xu, n.win.Id)
 
 	return n, nil
 }
 
-func (n *Notification) draw(text string) error {
+func (n *Notification) show(o *oshirase.Notify) error {
 	// Calculate the required bar width coordinate.
-	w, _ := xgraphics.Extents(n.font, n.size, text)
+	w, _ := xgraphics.Extents(n.font, n.size, o.Summary)
 	w += (2 * 24)
 	if w > 600 {
 		w = 600
@@ -115,7 +125,8 @@ func (n *Notification) draw(text string) error {
 	})
 
 	// Draw the text.
-	if _, _, err := n.img.Text(24, 20, n.fg, n.size, n.font, text); err != nil {
+	if _, _, err := n.img.Text(24, 20, n.fg, n.size, n.font,
+		o.Summary); err != nil {
 		return err
 	}
 
@@ -130,9 +141,13 @@ func (n *Notification) draw(text string) error {
 	n.img.XDraw()
 	n.img.XPaint(n.win.Id)
 
-	return nil
-}
+	// Undraw notification.
+	n.ID = o.ID
+	time.Sleep(time.Second * n.time)
+	if n.ID == o.ID {
+		n.win.Unmap()
+		n.ID = o.ID
+	}
 
-func (n *Notification) undraw() {
-	n.win.Unmap()
+	return nil
 }
