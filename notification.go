@@ -112,8 +112,10 @@ func newNotification(x, y, h int, bg, fg, font string,
 }
 
 func (n *Notification) show(o *oshirase.Notify) error {
+	txt := "[" + o.Summary + "] " + o.Body
+
 	// Calculate the required bar width coordinate.
-	w, _ := xgraphics.Extents(n.font, n.size, o.Summary)
+	w, _ := xgraphics.Extents(n.font, n.size, txt)
 	w += (2 * 24)
 	if w > 600 {
 		w = 600
@@ -125,8 +127,7 @@ func (n *Notification) show(o *oshirase.Notify) error {
 	})
 
 	// Draw the text.
-	if _, _, err := n.img.Text(24, 20, n.fg, n.size, n.font,
-		o.Summary); err != nil {
+	if _, _, err := n.img.Text(24, 20, n.fg, n.size, n.font, txt); err != nil {
 		return err
 	}
 
