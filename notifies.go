@@ -32,6 +32,7 @@ func (ns *notifies) delete(id uint32) error {
 	ns.NMU.Lock()
 	defer ns.NMU.Unlock()
 	ns.Notifies = append(ns.Notifies[:idx], ns.Notifies[idx+1:]...)
+
 	return nil
 }
 

@@ -39,8 +39,8 @@ type Notification struct {
 	ID uint32
 }
 
-func newNotification(x, y, h int, bg, fg, font string,
-	size float64, time time.Duration) (n *Notification, err error) {
+func newNotification(x, y, h int, bg, fg, font string, size float64, time time.
+	Duration) (n *Notification, err error) {
 	n = new(Notification)
 
 	// Set up a connection to the X server.
@@ -58,8 +58,8 @@ func newNotification(x, y, h int, bg, fg, font string,
 	if err != nil {
 		return nil, err
 	}
-	n.win.Create(n.xu.RootWin(), x, y, 600, h, xproto.CwBackPixel|
-		xproto.CwEventMask, 0x000000, xproto.EventMaskButtonPress)
+	n.win.Create(n.xu.RootWin(), x, y, 600, h, xproto.CwBackPixel|xproto.
+		CwEventMask, 0x000000, xproto.EventMaskButtonPress)
 
 	// EWMH stuff to make the notification window visibile on all workspaces and
 	// always be on top.
@@ -73,7 +73,9 @@ func newNotification(x, y, h int, bg, fg, font string,
 
 	// Create the notification popup image.
 	n.img = xgraphics.New(n.xu, image.Rect(0, 0, 600, h))
-	n.img.XSurfaceSet(n.win.Id)
+	if err := n.img.XSurfaceSet(n.win.Id); err != nil {
+		return nil, err
+	}
 
 	// Set width and height of the notitication window.
 	n.x = x
