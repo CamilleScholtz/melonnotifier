@@ -1,21 +1,27 @@
 package main
 
 import (
-	"log"
+	"path"
 
+	homedir "github.com/mitchellh/go-homedir"
 	"github.com/pocke/oshirase"
 )
 
 func main() {
 	srv, err := oshirase.NewServer("melonnotifier", "onodera-punpun", "0.0.1")
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 
-	n, err := newNotification(1920-56, 1200-(56*2), 56, "#EEEEEE",
-		"#021B21", "/home/onodera/.fonts/cure.tff.bak", 11, 4)
+	hd, err := homedir.Dir()
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
+	}
+
+	n, err := newNotification(1920-56, 1200-(56*2), 56, "#EEEEEE", "#021B21",
+		path.Join(hd, ".fonts/plan9/cure.font"), 4)
+	if err != nil {
+		panic(err)
 	}
 
 	ns := newNotifies()

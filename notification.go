@@ -2,10 +2,10 @@ package main
 
 import (
 	"image"
-	"os"
+	"io/ioutil"
+	"path"
 	"time"
 
-	"github.com/BurntSushi/freetype-go/freetype/truetype"
 	"github.com/BurntSushi/xgb/xproto"
 	"github.com/BurntSushi/xgbutil"
 	"github.com/BurntSushi/xgbutil/ewmh"
@@ -13,6 +13,9 @@ import (
 	"github.com/BurntSushi/xgbutil/xgraphics"
 	"github.com/BurntSushi/xgbutil/xwindow"
 	"github.com/pocke/oshirase"
+	"golang.org/x/image/font"
+	"golang.org/x/image/font/plan9font"
+	"golang.org/x/image/math/fixed"
 )
 
 // Notification is a struct describing a notification popup.
@@ -25,12 +28,11 @@ type Notification struct {
 	// The X, Y and height of the notitication window.
 	x, y, h int
 
-	// The foreground and background colors of the notification window.
-	bg, fg xgraphics.BGRA
+	// The background color of the notification window.
+	bg xgraphics.BGRA
 
-	// The font and fontsize size that should be used.
-	font *truetype.Font
-	size float64
+	// Drawer
+	drawer *font.Drawer
 
 	// The time in seconds a notification is visible.
 	time time.Duration
@@ -39,8 +41,8 @@ type Notification struct {
 	ID uint32
 }
 
-func newNotification(x, y, h int, bg, fg, font string, size float64, time time.
-	Duration) (n *Notification, err error) {
+func newNotification(x, y, h int, bg, fg, fp string, time time.Duration) (
+	n *Notification, err error) {
 	n = new(Notification)
 
 	// Set up a connection to the X server.
@@ -85,23 +87,26 @@ func newNotification(x, y, h int, bg, fg, font string, size float64, time time.
 	// Convert foreground and background colors of the notification window from
 	// HEX to BGRA.
 	n.bg = hexToBGRA(bg)
-	n.fg = hexToBGRA(fg)
 
 	// Load font.
-	// TODO: I don't *really* want to use `ttf` fonts but there doesn't seem to
-	// be any `pcf` Go library at the moment. I have tried the plan9 fonts,
-	// which do work, but honestly it's a pain in the ass (read: impossible) to
-	// convert muh cure font.
-	f, err := os.Open(font)
+	fr := func(name string) ([]byte, error) {
+		return ioutil.ReadFile(path.Join(path.Dir(fp), name))
+	}
+	fd, err := fr(path.Base(fp))
 	if err != nil {
 		return nil, err
 	}
-	defer f.Close()
-	n.font, err = xgraphics.ParseFont(f)
+	face, err := plan9font.ParseFont(fd, fr)
 	if err != nil {
 		return nil, err
 	}
-	n.size = size
+
+	// Create drawer.
+	n.drawer = &font.Drawer{
+		Dst:  n.img,
+		Src:  image.NewUniform(hexToBGRA(fg)),
+		Face: face,
+	}
 
 	n.time = time
 
@@ -117,7 +122,7 @@ func (n *Notification) show(o *oshirase.Notify) error {
 	txt := "[" + o.Summary + "] " + o.Body
 
 	// Calculate the required bar width coordinate.
-	w, _ := xgraphics.Extents(n.font, n.size, txt)
+	w := n.drawer.MeasureString(txt).Ceil()
 	w += (2 * 24)
 	if w > 600 {
 		w = 600
@@ -129,9 +134,8 @@ func (n *Notification) show(o *oshirase.Notify) error {
 	})
 
 	// Draw the text.
-	if _, _, err := n.img.Text(24, 20, n.fg, n.size, n.font, txt); err != nil {
-		return err
-	}
+	n.drawer.Dot = fixed.P(24, 32)
+	n.drawer.DrawString(txt)
 
 	// Make visible on all virtual desktops and map window.
 	if err := ewmh.WmDesktopSet(n.xu, n.win.Id, 0xFFFFFFFF); err != nil {
