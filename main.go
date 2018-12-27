@@ -1,27 +1,24 @@
 package main
 
 import (
-	"path"
+	"log"
 
-	homedir "github.com/mitchellh/go-homedir"
+	"github.com/gobuffalo/packr/v2"
 	"github.com/pocke/oshirase"
 )
+
+var box = packr.New("box", "./box")
 
 func main() {
 	srv, err := oshirase.NewServer("melonnotifier", "onodera-punpun", "0.0.1")
 	if err != nil {
-		panic(err)
+		log.Fatalln(err)
 	}
 
-	hd, err := homedir.Dir()
+	n, err := initNotification(1920-56, 1200-(56*2), 56, "#EEEEEE", "#021B21",
+		4)
 	if err != nil {
-		panic(err)
-	}
-
-	n, err := newNotification(1920-56, 1200-(56*2), 56, "#EEEEEE", "#021B21",
-		path.Join(hd, ".fonts/plan9/cure.font"), 4)
-	if err != nil {
-		panic(err)
+		log.Fatalln(err)
 	}
 
 	ns := newNotifies()

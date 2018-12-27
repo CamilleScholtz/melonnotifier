@@ -10,6 +10,12 @@ written in Go.
 
 `go get github.com/onodera-punpun/melonnotifier`
 
+Or for a binary that includes embedded static files:
+
+`packr2 get github.com/onodera-punpun/melonbar`
+
+`melonbar` depends on go and [packr2](https://github.com/gobuffalo/packr/tree/master/v2).
+
 
 ## USAGE
 
@@ -17,7 +23,7 @@ So the idea is that the look of the notification is very "easy" to configure by
 just modifying the source code, à la suckless.
 
 The most important parts of the notification such as the position, width and
-font are configurable in `main.go`.
+font are configurable in `main.go` and `notification.go`.
 
 
 ## AUTHORS
