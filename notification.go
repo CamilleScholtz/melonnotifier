@@ -2,7 +2,6 @@ package main
 
 import (
 	"image"
-	"path"
 	"time"
 
 	"github.com/BurntSushi/xgb/xproto"
@@ -13,14 +12,12 @@ import (
 	"github.com/BurntSushi/xgbutil/xwindow"
 	"github.com/pocke/oshirase"
 	"golang.org/x/image/font"
-	"golang.org/x/image/font/plan9font"
 	"golang.org/x/image/math/fixed"
 )
 
 // Notification is a struct describing a notification popup.
 type Notification struct {
-	// Connection to the X server, the notify window, and the notify image.
-	X   *xgbutil.XUtil
+	// The notify window, and the notify image.
 	win *xwindow.Window
 	img *xgraphics.Image
 
@@ -44,36 +41,30 @@ func initNotification(x, y, h int, bg, fg string, time time.Duration) (
 	n *Notification, err error) {
 	n = new(Notification)
 
-	// Set up a connection to the X server.
-	n.X, err = xgbutil.NewConn()
-	if err != nil {
-		return nil, err
-	}
-
 	// Run the main X event loop, this is uses to catch events.
-	go xevent.Main(n.X)
+	go xevent.Main(X)
 
 	// Create a window for the notification window. This window also listens to
 	// button press events in order to respond to them.
-	n.win, err = xwindow.Generate(n.X)
+	n.win, err = xwindow.Generate(X)
 	if err != nil {
 		return nil, err
 	}
-	n.win.Create(n.X.RootWin(), x, y, 600, h, xproto.CwBackPixel|xproto.
+	n.win.Create(X.RootWin(), x, y, 600, h, xproto.CwBackPixel|xproto.
 		CwEventMask, 0x000000, xproto.EventMaskButtonPress)
 
 	// EWMH stuff to make the notification window visibile on all workspaces and
 	// always be on top.
-	if err := ewmh.WmWindowTypeSet(n.X, n.win.Id, []string{
+	if err := ewmh.WmWindowTypeSet(X, n.win.Id, []string{
 		"_NET_WM_WINDOW_TYPE_DOCK"}); err != nil {
 		return nil, err
 	}
-	if err := ewmh.WmNameSet(n.X, n.win.Id, "melonnotify"); err != nil {
+	if err := ewmh.WmNameSet(X, n.win.Id, "melonnotify"); err != nil {
 		return nil, err
 	}
 
 	// Create the notification popup image.
-	n.img = xgraphics.New(n.X, image.Rect(0, 0, 600, h))
+	n.img = xgraphics.New(X, image.Rect(0, 0, 600, h))
 	if err := n.img.XSurfaceSet(n.win.Id); err != nil {
 		return nil, err
 	}
@@ -87,19 +78,6 @@ func initNotification(x, y, h int, bg, fg string, time time.Duration) (
 	// HEX to BGRA.
 	n.bg = hexToBGRA(bg)
 
-	// Load font.
-	fr := func(name string) ([]byte, error) {
-		return box.Find(path.Join("fonts", name))
-	}
-	fp, err := box.Find("fonts/cure.font")
-	if err != nil {
-		return nil, err
-	}
-	face, err := plan9font.ParseFont(fp, fr)
-	if err != nil {
-		return nil, err
-	}
-
 	// Create drawer.
 	n.drawer = &font.Drawer{
 		Dst:  n.img,
@@ -112,7 +90,7 @@ func initNotification(x, y, h int, bg, fg string, time time.Duration) (
 	// Listen to mouse events; close on click.
 	xevent.ButtonPressFun(func(_ *xgbutil.XUtil, ev xevent.ButtonPressEvent) {
 		n.win.Unmap()
-	}).Connect(n.X, n.win.Id)
+	}).Connect(X, n.win.Id)
 
 	return n, nil
 }
@@ -137,7 +115,7 @@ func (n *Notification) show(o *oshirase.Notify) error {
 	n.drawer.DrawString(txt)
 
 	// Make visible on all virtual desktops and map window.
-	if err := ewmh.WmDesktopSet(n.X, n.win.Id, 0xFFFFFFFF); err != nil {
+	if err := ewmh.WmDesktopSet(X, n.win.Id, 0xFFFFFFFF); err != nil {
 		return err
 	}
 	n.win.Map()
