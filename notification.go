@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"image"
 	"time"
 
@@ -10,7 +11,7 @@ import (
 	"github.com/BurntSushi/xgbutil/xevent"
 	"github.com/BurntSushi/xgbutil/xgraphics"
 	"github.com/BurntSushi/xgbutil/xwindow"
-	"github.com/pocke/oshirase"
+	"github.com/onodera-punpun/oshirase"
 	"golang.org/x/image/font"
 	"golang.org/x/image/math/fixed"
 )
@@ -24,7 +25,7 @@ type Notification struct {
 	// The X, Y and height of the notitication window.
 	x, y, h int
 
-	// The background color of the notification window.
+	// The background color.
 	bg xgraphics.BGRA
 
 	// Drawer
@@ -37,7 +38,7 @@ type Notification struct {
 	ID uint32
 }
 
-func initNotification(x, y, h int, bg, fg string, time time.Duration) (
+func initNotification(x, y, h int, bg, fg xgraphics.BGRA, time time.Duration) (
 	n *Notification, err error) {
 	n = new(Notification)
 
@@ -53,13 +54,8 @@ func initNotification(x, y, h int, bg, fg string, time time.Duration) (
 	n.win.Create(X.RootWin(), x, y, 600, h, xproto.CwBackPixel|xproto.
 		CwEventMask, 0x000000, xproto.EventMaskButtonPress)
 
-	// EWMH stuff to make the notification window visibile on all workspaces and
-	// always be on top.
-	if err := ewmh.WmWindowTypeSet(X, n.win.Id, []string{
-		"_NET_WM_WINDOW_TYPE_DOCK"}); err != nil {
-		return nil, err
-	}
-	if err := ewmh.WmNameSet(X, n.win.Id, "melonnotify"); err != nil {
+	// EWMH stuff to make the window behave like an actual notification.
+	if err := initEWMH(n.win.Id); err != nil {
 		return nil, err
 	}
 
@@ -74,23 +70,18 @@ func initNotification(x, y, h int, bg, fg string, time time.Duration) (
 	n.y = y
 	n.h = h
 
-	// Convert foreground and background colors of the notification window from
-	// HEX to BGRA.
-	n.bg = hexToBGRA(bg)
+	// Set background color.
+	n.bg = bg
 
-	// Create drawer.
+	// Set bar font face.
 	n.drawer = &font.Drawer{
 		Dst:  n.img,
-		Src:  image.NewUniform(hexToBGRA(fg)),
+		Src:  image.NewUniform(fg),
 		Face: face,
 	}
 
+	// Set the display time.
 	n.time = time
-
-	// Listen to mouse events; close on click.
-	xevent.ButtonPressFun(func(_ *xgbutil.XUtil, ev xevent.ButtonPressEvent) {
-		n.win.Unmap()
-	}).Connect(X, n.win.Id)
 
 	return n, nil
 }
@@ -114,8 +105,13 @@ func (n *Notification) show(o *oshirase.Notify) error {
 	n.drawer.Dot = fixed.P(24, 32)
 	n.drawer.DrawString(txt)
 
+	// Listen to mouse events; close on click.
+	xevent.ButtonPressFun(func(_ *xgbutil.XUtil, ev xevent.ButtonPressEvent) {
+		fmt.Println(o)
+	}).Connect(X, n.win.Id)
+
 	// Make visible on all virtual desktops and map window.
-	if err := ewmh.WmDesktopSet(X, n.win.Id, 0xFFFFFFFF); err != nil {
+	if err := ewmh.WmDesktopSet(X, n.win.Id, ^uint(0)); err != nil {
 		return err
 	}
 	n.win.Map()
@@ -129,6 +125,7 @@ func (n *Notification) show(o *oshirase.Notify) error {
 	n.ID = o.ID
 	time.Sleep(time.Second * n.time)
 	if n.ID == o.ID {
+		n.win.Detach()
 		n.win.Unmap()
 		n.ID = o.ID
 	}

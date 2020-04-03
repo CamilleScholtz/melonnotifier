@@ -5,12 +5,13 @@ import (
 
 	"github.com/AndreKR/multiface"
 	"github.com/BurntSushi/xgbutil"
-	"github.com/gobuffalo/packr/v2"
-	"github.com/pocke/oshirase"
+	"github.com/BurntSushi/xgbutil/xgraphics"
+	"github.com/markbates/pkger"
+	"github.com/onodera-punpun/oshirase"
 )
 
 var (
-	box = packr.New("box", "./box")
+	runtime = pkger.Dir("/runtime")
 
 	// Connection to the X server.
 	X *xgbutil.XUtil
@@ -25,7 +26,7 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	// Initialize X.
+	// Initialize font face.
 	if err := initFace(); err != nil {
 		log.Fatalln(err)
 	}
@@ -36,8 +37,10 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	n, err := initNotification(1920-56, 1200-(56*2), 56, "#EEEEEE", "#021B21",
-		4)
+	// Initialize notification.
+	n, err := initNotification(1920-56, 1200-(56*2), 56, xgraphics.BGRA{
+		B: 238, G: 238, R: 238, A: 0xFF}, xgraphics.BGRA{B: 2, G: 27, R: 33,
+		A: 0xFF}, 4)
 	if err != nil {
 		log.Fatalln(err)
 	}

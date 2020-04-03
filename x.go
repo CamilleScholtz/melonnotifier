@@ -1,8 +1,12 @@
 package main
 
 import (
+	"io/ioutil"
+
 	"github.com/AndreKR/multiface"
+	"github.com/BurntSushi/xgb/xproto"
 	"github.com/BurntSushi/xgbutil"
+	"github.com/BurntSushi/xgbutil/ewmh"
 	"github.com/BurntSushi/xgbutil/xevent"
 	"github.com/zachomedia/go-bdf"
 )
@@ -21,38 +25,48 @@ func initX() error {
 	return nil
 }
 
+func initEWMH(w xproto.Window) error {
+	// TODO: `WmStateSet` and `WmDesktopSet` are basically here to keep OpenBox
+	// happy, can I somehow remove them and just use `_NET_WM_WINDOW_TYPE_DOCK`
+	// like I can with WindowChef?
+	if err := ewmh.WmWindowTypeSet(X, w, []string{
+		"_NET_WM_WINDOW_TYPE_DOCK"}); err != nil {
+		return err
+	}
+	if err := ewmh.WmStateSet(X, w, []string{
+		"_NET_WM_STATE_STICKY"}); err != nil {
+		return err
+	}
+	return ewmh.WmNameSet(X, w, "melonnotify")
+}
+
 func initFace() error {
 	face = new(multiface.Face)
 
-	fp, err := box.Find("fonts/cure.punpun.bdf")
-	if err != nil {
-		return err
+	fpl := []string{
+		"/fonts/cure.punpun.bdf",
+		"/fonts/kochi.small.bdf",
+		"/fonts/baekmuk.small.bdf",
 	}
-	f, err := bdf.Parse(fp)
-	if err != nil {
-		return err
-	}
-	face.AddFace(f.NewFace())
 
-	fp, err = box.Find("fonts/kochi.small.bdf")
-	if err != nil {
-		return err
-	}
-	f, err = bdf.Parse(fp)
-	if err != nil {
-		return err
-	}
-	face.AddFace(f.NewFace())
+	for _, fp := range fpl {
+		f, err := runtime.Open(fp)
+		if err != nil {
+			return err
+		}
+		fb, err := ioutil.ReadAll(f)
+		if err != nil {
+			return err
+		}
+		ff, err := bdf.Parse(fb)
+		if err != nil {
+			return err
+		}
 
-	fp, err = box.Find("fonts/baekmuk.small.bdf")
-	if err != nil {
-		return err
+		face.AddFace(ff.NewFace())
+
+		f.Close()
 	}
-	f, err = bdf.Parse(fp)
-	if err != nil {
-		return err
-	}
-	face.AddFace(f.NewFace())
 
 	return nil
 }
